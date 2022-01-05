@@ -3,9 +3,7 @@
 namespace phpboot\dal\redis;
 
 use phpboot\common\Cast;
-use phpboot\dal\GobackendSettings;
 use phpboot\dal\pool\PoolManager;
-use phpboot\common\swoole\Swoole;
 use phpboot\common\util\StringUtils;
 use Redis;
 use RuntimeException;
@@ -17,41 +15,8 @@ use Throwable;
  */
 final class RedisCmd
 {
-    const EXECUTOR_TYPE_GOBACKEND = 1;
-    const EXECUTOR_TYPE_PHPREDIS = 2;
-
-    /**
-     * @var array
-     */
-    private static $map1 = [];
-
     private function __construct()
     {
-    }
-
-    public static function gobackendEnabled(?bool $flag = null, ?int $workerId = null): bool
-    {
-        if (Swoole::inCoroutineMode(true)) {
-            if (!is_int($workerId)) {
-                $workerId = Swoole::getWorkerId();
-            }
-
-            $key = "gobackendEnabled_worker$workerId";
-        } else {
-            $key = 'gobackendEnabled_noworker';
-        }
-
-        if (is_bool($flag)) {
-            self::$map1[$key] = $flag;
-            return false;
-        }
-
-        if (self::$map1[$key] !== true) {
-            return false;
-        }
-
-        $settings = GobackendSettings::loadCurrent($workerId);
-        return $settings instanceof GobackendSettings && !$settings->isEnabled();
     }
 
     public static function loadScript(string $scriptName): string
@@ -68,75 +33,43 @@ final class RedisCmd
 
     public static function ping(): bool
     {
-        if (self::gobackendEnabled()) {
-            return self::boolResult(self::EXECUTOR_TYPE_GOBACKEND, 'PING');
-        }
-
-        return self::boolResult(self::EXECUTOR_TYPE_PHPREDIS, 'PING');
+        return self::boolResult('PING');
     }
 
     public static function info(): array
     {
-        if (self::gobackendEnabled()) {
-            return self::arrayResult(self::EXECUTOR_TYPE_GOBACKEND, 'INFO');
-        }
-
-        return self::arrayResult(self::EXECUTOR_TYPE_PHPREDIS, 'INFO');
+        return self::arrayResult('INFO');
     }
 
     /* Strings */
     public static function decr(string $key): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'DECR', [$key]);
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'DECR', [$key]);
+        return self::intResult('DECR', [$key]);
     }
 
     public static function decrBy(string $key, int $value): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'DECRBY', [$key, "$value"]);
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'DECRBY', [$key, "$value"]);
+        return self::intResult('DECRBY', [$key, "$value"]);
     }
 
     public static function get(string $key): string
     {
-        if (self::gobackendEnabled()) {
-            return self::stringResult(self::EXECUTOR_TYPE_GOBACKEND, 'GET', [$key]);
-        }
-
-        return self::stringResult(self::EXECUTOR_TYPE_PHPREDIS, 'GET', [$key]);
+        return self::stringResult('GET', [$key]);
     }
 
     public static function incr(string $key): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'INCR', [$key]);
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'INCR', [$key]);
+        return self::intResult('INCR', [$key]);
     }
 
     public static function incrBy(string $key, int $value): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'INCRBY', [$key, "$value"]);
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'INCRBY', [$key, "$value"]);
+        return self::intResult('INCRBY', [$key, "$value"]);
     }
 
     public static function incrByFloat(string $key, float $value): float
     {
-        if (self::gobackendEnabled()) {
-            return self::floatResult(self::EXECUTOR_TYPE_GOBACKEND, "INCRBYFLOAT", [$key, "$value"]);
-        }
-
-        return self::floatResult(self::EXECUTOR_TYPE_PHPREDIS, "INCRBYFLOAT", [$key, "$value"]);
+        return self::floatResult("INCRBYFLOAT", [$key, "$value"]);
     }
 
     /**
@@ -145,11 +78,7 @@ final class RedisCmd
      */
     public static function mGet(array $keys): array
     {
-        if (self::gobackendEnabled()) {
-            return self::arrayResult(self::EXECUTOR_TYPE_GOBACKEND, 'MGET@array', $keys);
-        }
-
-        return self::arrayResult(self::EXECUTOR_TYPE_PHPREDIS, 'MGET', $keys);
+        return self::arrayResult('MGET', $keys);
     }
 
     public static function mSet(array $pairs): bool
@@ -168,20 +97,12 @@ final class RedisCmd
             return false;
         }
 
-        if (self::gobackendEnabled()) {
-            return self::boolResult(self::EXECUTOR_TYPE_GOBACKEND, 'MSET', $args);
-        }
-
-        return self::boolResult(self::EXECUTOR_TYPE_PHPREDIS, 'MSET', $args);
+        return self::boolResult('MSET', $args);
     }
 
     public static function set(string $key, string $value): bool
     {
-        if (self::gobackendEnabled()) {
-            return self::boolResult(self::EXECUTOR_TYPE_GOBACKEND, 'SET', [$key, $value]);
-        }
-
-        return self::boolResult(self::EXECUTOR_TYPE_PHPREDIS, 'SET', [$key, $value]);
+        return self::boolResult('SET', [$key, $value]);
     }
 
     /**
@@ -196,11 +117,7 @@ final class RedisCmd
             $ttl = StringUtils::toDuration($ttl);
         }
 
-        if (self::gobackendEnabled()) {
-            return self::boolResult(self::EXECUTOR_TYPE_GOBACKEND, 'SETEX', [$key, "$ttl", $value]);
-        }
-
-        return self::boolResult(self::EXECUTOR_TYPE_PHPREDIS, 'SETEX', [$key, "$ttl", $value]);
+        return self::boolResult('SETEX', [$key, "$ttl", $value]);
     }
 
     /**
@@ -217,40 +134,24 @@ final class RedisCmd
 
         $ttl *= 1000;
         
-        if (self::gobackendEnabled()) {
-            return self::boolResult(self::EXECUTOR_TYPE_GOBACKEND, 'PSETEX', [$key, "$ttl", $value]);
-        }
-
-        return self::boolResult(self::EXECUTOR_TYPE_PHPREDIS, 'PSETEX', [$key, "$ttl", $value]);
+        return self::boolResult('PSETEX', [$key, "$ttl", $value]);
     }
 
     public static function setnx(string $key, string $value): bool
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'SETNX', [$key, $value], -1) === 0;
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'SETNX', [$key, $value], -1) === 0;
+        return self::intResult('SETNX', [$key, $value], -1) === 0;
     }
     /* end of Strings */
 
     /* Keys */
     public static function del(string $key): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'DEL', [$key]);
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'DEL', [$key]);
+        return self::intResult('DEL', [$key]);
     }
 
     public static function exists(string $key): bool
     {
-        if (self::gobackendEnabled()) {
-            return self::boolResult(self::EXECUTOR_TYPE_GOBACKEND, 'EXISTS', [$key]);
-        }
-
-        return self::boolResult(self::EXECUTOR_TYPE_PHPREDIS, 'EXISTS', [$key]);
+        return self::boolResult('EXISTS', [$key]);
     }
 
     /**
@@ -264,20 +165,12 @@ final class RedisCmd
             $duration = StringUtils::toDuration($duration);
         }
 
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'EXPIRE', [$key, "$duration"]) === 1;
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'EXPIRE', [$key, "$duration"]) === 1;
+        return self::intResult('EXPIRE', [$key, "$duration"]) === 1;
     }
 
     public static function expireAt(string $key, int $timestamp): bool
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'EXPIREAT', [$key, "$timestamp"]) === 1;
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'EXPIREAT', [$key, "$timestamp"]) === 1;
+        return self::intResult('EXPIREAT', [$key, "$timestamp"]) === 1;
     }
 
     /**
@@ -286,38 +179,22 @@ final class RedisCmd
      */
     public static function keys(string $pattern): array
     {
-        if (self::gobackendEnabled()) {
-            return self::arrayResult(self::EXECUTOR_TYPE_GOBACKEND, 'KEYS@array', [$pattern]);
-        }
-
-        return self::arrayResult(self::EXECUTOR_TYPE_PHPREDIS, 'KEYS', [$pattern]);
+        return self::arrayResult('KEYS', [$pattern]);
     }
 
     public static function rename(string $key, string $newKey): bool
     {
-        if (self::gobackendEnabled()) {
-            return self::boolResult(self::EXECUTOR_TYPE_GOBACKEND, 'RENAME', [$key, $newKey]);
-        }
-
-        return self::boolResult(self::EXECUTOR_TYPE_PHPREDIS, 'RENAME', [$key, $newKey]);
+        return self::boolResult('RENAME', [$key, $newKey]);
     }
 
     public static function renameNx(string $key, string $newKey): bool
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'RENAMENX', [$key, $newKey]) === 1;
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'RENAMENX', [$key, $newKey]) === 1;
+        return self::intResult('RENAMENX', [$key, $newKey]) === 1;
     }
 
     public static function ttl(string $key): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'TTL', [$key]);
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'TTL', [$key]);
+        return self::intResult('TTL', [$key]);
     }
     /* end of Keys */
 
@@ -343,11 +220,7 @@ final class RedisCmd
             return 0;
         }
 
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'HDEL', array_merge([$key], $args));
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'HDEL', array_merge([$key], $args));
+        return self::intResult('HDEL', array_merge([$key], $args));
     }
 
     /**
@@ -356,11 +229,7 @@ final class RedisCmd
      */
     public static function hKeys(string $key): array
     {
-        if (self::gobackendEnabled()) {
-            return self::arrayResult(self::EXECUTOR_TYPE_GOBACKEND, 'HKEYS@array', [$key]);
-        }
-
-        return self::arrayResult(self::EXECUTOR_TYPE_PHPREDIS, 'HKEYS', [$key]);
+        return self::arrayResult('HKEYS', [$key]);
     }
 
     /**
@@ -369,21 +238,12 @@ final class RedisCmd
      */
     public static function hVals(string $key): array
     {
-        if (self::gobackendEnabled()) {
-            return self::arrayResult(self::EXECUTOR_TYPE_GOBACKEND, 'HVALS@array', [$key]);
-        }
-
-        return self::arrayResult(self::EXECUTOR_TYPE_PHPREDIS, 'HVALS', [$key]);
+        return self::arrayResult('HVALS', [$key]);
     }
 
     public static function hGetAll(string $key): array
     {
-        if (self::gobackendEnabled()) {
-            $entries = self::arrayResult(self::EXECUTOR_TYPE_GOBACKEND, 'HGETALL@array', [$key]);
-        } else {
-            $entries = self::arrayResult(self::EXECUTOR_TYPE_PHPREDIS, 'HGETALL', [$key]);
-        }
-
+        $entries = self::arrayResult('HGETALL', [$key]);
         $cnt = count($entries);
 
         if ($cnt < 1) {
@@ -412,29 +272,17 @@ final class RedisCmd
 
     public static function hExists(string $key, string $fieldName): bool
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'HEXISTS', [$key, $fieldName]) === 1;
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'HEXISTS', [$key, $fieldName]) === 1;
+        return self::intResult('HEXISTS', [$key, $fieldName]) === 1;
     }
 
     public static function hIncrBy(string $key, string $fieldName, int $num): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'HINCRBY', [$key, $fieldName, "$num"]);
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'HINCRBY', [$key, $fieldName, "$num"]);
+        return self::intResult('HINCRBY', [$key, $fieldName, "$num"]);
     }
 
     public static function hIncrByFloat(string $key, string $fieldName, float $num): float
     {
-        if (self::gobackendEnabled()) {
-            return self::floatResult(self::EXECUTOR_TYPE_GOBACKEND, "HINCRBYFLOAT", [$key, $fieldName, "$num"]);
-        }
-
-        return self::floatResult(self::EXECUTOR_TYPE_PHPREDIS, "HINCRBYFLOAT", [$key, $fieldName, "$num"]);
+        return self::floatResult("HINCRBYFLOAT", [$key, $fieldName, "$num"]);
     }
 
     public static function hMSet(array $pairs): bool
@@ -453,11 +301,7 @@ final class RedisCmd
             return false;
         }
 
-        if (self::gobackendEnabled()) {
-            return self::boolResult(self::EXECUTOR_TYPE_GOBACKEND, 'HMSET', $args);
-        }
-
-        return self::boolResult(self::EXECUTOR_TYPE_PHPREDIS, 'HMSET', $args);
+        return self::boolResult('HMSET', $args);
     }
 
     public static function hMGet(string $key, array $fieldNames): array
@@ -478,11 +322,7 @@ final class RedisCmd
             return [];
         }
 
-        if (self::gobackendEnabled()) {
-            $entries = self::arrayResult(self::EXECUTOR_TYPE_GOBACKEND, 'HMGET@array', array_merge([$key], $args));
-        } else {
-            $entries = self::arrayResult(self::EXECUTOR_TYPE_PHPREDIS, 'HMGET', array_merge([$key], $args));
-        }
+        $entries = self::arrayResult('HMGET', array_merge([$key], $args));
 
         if (count($entries) !== $cnt) {
             return [];
@@ -525,12 +365,7 @@ final class RedisCmd
         }
 
         $args[] = "$timeout";
-
-        if (self::gobackendEnabled()) {
-            return self::arrayResult(self::EXECUTOR_TYPE_GOBACKEND, 'BLPOP@array', $args);
-        }
-
-        return self::arrayResult(self::EXECUTOR_TYPE_PHPREDIS, 'BLPOP', $args);
+        return self::arrayResult('BLPOP', $args);
     }
 
     /**
@@ -559,12 +394,7 @@ final class RedisCmd
         }
 
         $args[] = "$timeout";
-
-        if (self::gobackendEnabled()) {
-            return self::arrayResult(self::EXECUTOR_TYPE_GOBACKEND, 'BRPOP@array', $args);
-        }
-
-        return self::arrayResult(self::EXECUTOR_TYPE_PHPREDIS, 'BRPOP', $args);
+        return self::arrayResult('BRPOP', $args);
     }
 
     /**
@@ -579,20 +409,12 @@ final class RedisCmd
             $timeout = StringUtils::toDuration($timeout);
         }
 
-        if (self::gobackendEnabled()) {
-            return self::stringResult(self::EXECUTOR_TYPE_GOBACKEND, 'BRPOPLPUSH', [$srcKey, $dstKey, "$timeout"]);
-        }
-
-        return self::stringResult(self::EXECUTOR_TYPE_PHPREDIS, 'BRPOPLPUSH', [$srcKey, $dstKey, "$timeout"]);
+        return self::stringResult('BRPOPLPUSH', [$srcKey, $dstKey, "$timeout"]);
     }
 
     public static function lIndex(string $key, int $idx): string
     {
-        if (self::gobackendEnabled()) {
-            return self::stringResult(self::EXECUTOR_TYPE_GOBACKEND, 'LINDEX', [$key, "$idx"]);
-        }
-
-        return self::stringResult(self::EXECUTOR_TYPE_PHPREDIS, 'LINDEX', [$key, "$idx"]);
+        return self::stringResult('LINDEX', [$key, "$idx"]);
     }
 
     public static function lGet(string $key, int $idx): string
@@ -603,11 +425,7 @@ final class RedisCmd
     public static function lInsert(string $key, string $serachValue, string $element, bool $before = false): int
     {
         $pos = $before ? 'BEFORE' : 'AFTER';
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'LINSERT', [$key, $pos, $serachValue, $element], -1);
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'LINSERT', [$key, $pos, $serachValue, $element], -1);
+        return self::intResult('LINSERT', [$key, $pos, $serachValue, $element], -1);
     }
 
     /**
@@ -628,45 +446,25 @@ final class RedisCmd
         }
 
         if ($multi) {
-            if (self::gobackendEnabled()) {
-                return self::arrayResult(self::EXECUTOR_TYPE_GOBACKEND, $cmd, $args);
-            }
-
-            return self::arrayResult(self::EXECUTOR_TYPE_PHPREDIS, $cmd, $args);
+            return self::arrayResult($cmd, $args);
         }
 
-        if (self::gobackendEnabled()) {
-            return self::stringResult(self::EXECUTOR_TYPE_GOBACKEND, $cmd, $args);
-        }
-
-        return self::stringResult(self::EXECUTOR_TYPE_PHPREDIS, $cmd, $args);
+        return self::stringResult($cmd, $args);
     }
 
     public static function lPush(string $key, string... $elements): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'LPUSH', array_merge([$key], $elements));
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'LPUSH', array_merge([$key], $elements));
+        return self::intResult('LPUSH', array_merge([$key], $elements));
     }
 
     public static function lPushx(string $key, string... $elements): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'LPUSHX', array_merge([$key], $elements));
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'LPUSHX', array_merge([$key], $elements));
+        return self::intResult('LPUSHX', array_merge([$key], $elements));
     }
 
     public static function lRange(string $key, int $start, int $stop): array
     {
-        if (self::gobackendEnabled()) {
-            return self::arrayResult(self::EXECUTOR_TYPE_GOBACKEND, 'LRANGE@array', [$key, "$start", "$stop"]);
-        }
-
-        return self::arrayResult(self::EXECUTOR_TYPE_PHPREDIS, 'LRANGE', [$key, "$start", "$stop"]);
+        return self::arrayResult('LRANGE', [$key, "$start", "$stop"]);
     }
 
     public static function lGetRange(string $key, int $start, int $stop): array
@@ -676,11 +474,7 @@ final class RedisCmd
 
     public static function lRem(string $key, int $count, string $element): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'LREM', [$key, "$count", $element]);
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'LREM', [$key, "$count", $element]);
+        return self::intResult('LREM', [$key, "$count", $element]);
     }
 
     public static function lRemove(string $key, int $count, string $element): int
@@ -690,20 +484,12 @@ final class RedisCmd
 
     public static function lSet(string $key, int $idx, string $value): bool
     {
-        if (self::gobackendEnabled()) {
-            return self::boolResult(self::EXECUTOR_TYPE_GOBACKEND, 'LSET', [$key, "$idx", $value]);
-        }
-
-        return self::boolResult(self::EXECUTOR_TYPE_PHPREDIS, 'LSET', [$key, "$idx", $value]);
+        return self::boolResult('LSET', [$key, "$idx", $value]);
     }
 
     public static function lTrim(string $key, int $start, int $stop): bool
     {
-        if (self::gobackendEnabled()) {
-            return self::boolResult(self::EXECUTOR_TYPE_GOBACKEND, 'LTRIM', [$key, "$start", "$stop"]);
-        }
-
-        return self::boolResult(self::EXECUTOR_TYPE_PHPREDIS, 'LTRIM', [$key, "$start", "$stop"]);
+        return self::boolResult('LTRIM', [$key, "$start", "$stop"]);
     }
 
     public static function listTrim(string $key, int $start, int $stop): bool
@@ -729,50 +515,30 @@ final class RedisCmd
         }
 
         if ($multi) {
-            if (self::gobackendEnabled()) {
-                return self::arrayResult(self::EXECUTOR_TYPE_GOBACKEND, $cmd, $args);
-            }
-
-            return self::arrayResult(self::EXECUTOR_TYPE_PHPREDIS, $cmd, $args);
+            return self::arrayResult($cmd, $args);
         }
 
-        if (self::gobackendEnabled()) {
-            return self::stringResult(self::EXECUTOR_TYPE_GOBACKEND, $cmd, $args);
-        }
-
-        return self::stringResult(self::EXECUTOR_TYPE_PHPREDIS, $cmd, $args);
+        return self::stringResult($cmd, $args);
     }
 
     public static function rPopLPush(string $srcKey, string $dstKey): string
     {
-        return self::fromGobackend('RPOPLPUSH', [$srcKey, $dstKey]);
+        return self::stringResult('RPOPLPUSH', [$srcKey, $dstKey]);
     }
 
     public static function rPush(string $key, string... $elements): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'RPUSH', array_merge([$key], $elements));
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'RPUSH', array_merge([$key], $elements));
+        return self::intResult('RPUSH', array_merge([$key], $elements));
     }
 
     public static function rPushx(string $key, string... $elements): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'RPUSHX', array_merge([$key], $elements));
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'RPUSHX', array_merge([$key], $elements));
+        return self::intResult('RPUSHX', array_merge([$key], $elements));
     }
 
     public static function lLen(string $key): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'LLEN', [$key]);
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'LLEN', [$key]);
+        return self::intResult('LLEN', [$key]);
     }
 
     public static function lSize(string $key): int
@@ -784,20 +550,12 @@ final class RedisCmd
     /* Sets */
     public static function sAdd(string $key, string... $members): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'SADD', array_merge([$key], $members));
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'SADD', array_merge([$key], $members));
+        return self::intResult('SADD', array_merge([$key], $members));
     }
 
     public static function sCard(string $key): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'SCARD', [$key]);
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'SCARD', [$key]);
+        return self::intResult('SCARD', [$key]);
     }
 
     public static function sSize(string $key): int
@@ -807,47 +565,27 @@ final class RedisCmd
 
     public static function sDiff(string $key, string... $otherKeys): array
     {
-        if (self::gobackendEnabled()) {
-            return self::arrayResult(self::EXECUTOR_TYPE_GOBACKEND, 'SDIFF@array', array_merge([$key], $otherKeys));
-        }
-
-        return self::arrayResult(self::EXECUTOR_TYPE_PHPREDIS, 'SDIFF', array_merge([$key], $otherKeys));
+        return self::arrayResult('SDIFF', array_merge([$key], $otherKeys));
     }
 
     public static function sDiffStore(string $dstKey, string... $srcKeys): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'SDIFFSTORE', array_merge([$dstKey], $srcKeys));
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'SDIFFSTORE', array_merge([$dstKey], $srcKeys));
+        return self::intResult('SDIFFSTORE', array_merge([$dstKey], $srcKeys));
     }
 
     public static function sInter(string $key, string... $otherKeys): array
     {
-        if (self::gobackendEnabled()) {
-            return self::arrayResult(self::EXECUTOR_TYPE_GOBACKEND, 'SINTER@array', array_merge([$key], $otherKeys));
-        }
-
-        return self::arrayResult(self::EXECUTOR_TYPE_PHPREDIS, 'SINTER', array_merge([$key], $otherKeys));
+        return self::arrayResult('SINTER', array_merge([$key], $otherKeys));
     }
 
     public static function sInterStore(string $dstKey, string... $srcKeys): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'SINTERSTORE', array_merge([$dstKey], $srcKeys));
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'SINTERSTORE', array_merge([$dstKey], $srcKeys));
+        return self::intResult('SINTERSTORE', array_merge([$dstKey], $srcKeys));
     }
 
     public static function sIsMember(string $key, string $searchValue): bool
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'SISMEMBER', [$key, $searchValue]) === 1;
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'SISMEMBER', [$key, $searchValue]) === 1;
+        return self::intResult('SISMEMBER', [$key, $searchValue]) === 1;
     }
 
     public static function sContains(string $key, string $searchValue): bool
@@ -857,11 +595,7 @@ final class RedisCmd
 
     public static function sMembers(string $key): array
     {
-        if (self::gobackendEnabled()) {
-            return self::arrayResult(self::EXECUTOR_TYPE_GOBACKEND, 'SMEMBERS@array', [$key]);
-        }
-
-        return self::arrayResult(self::EXECUTOR_TYPE_PHPREDIS, 'SMEMBERS', [$key]);
+        return self::arrayResult('SMEMBERS', [$key]);
     }
 
     public static function sGetMembers(string $key): array
@@ -871,11 +605,7 @@ final class RedisCmd
 
     public static function sMove(string $srcKey, string $dstKey, string $searchValue): bool
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'SMOVE', [$srcKey, $dstKey, $searchValue]) === 1;
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'SMOVE', [$srcKey, $dstKey, $searchValue]) === 1;
+        return self::intResult('SMOVE', [$srcKey, $dstKey, $searchValue]) === 1;
     }
 
     public static function sPop(string $key, ?int $count = null): array
@@ -886,11 +616,7 @@ final class RedisCmd
             $args[] = "$count";
         }
 
-        if (self::gobackendEnabled()) {
-            return self::arrayResult(self::EXECUTOR_TYPE_GOBACKEND, 'SPOP@array', $args);
-        }
-
-        return self::arrayResult(self::EXECUTOR_TYPE_PHPREDIS, 'SPOP', $args);
+        return self::arrayResult('SPOP', $args);
     }
 
     public static function sRandMember(string $key, ?int $count = null): array
@@ -901,20 +627,12 @@ final class RedisCmd
             $args[] = "$count";
         }
 
-        if (self::gobackendEnabled()) {
-            return self::arrayResult(self::EXECUTOR_TYPE_GOBACKEND, 'SRANDMEMBER@array', $args);
-        }
-
-        return self::arrayResult(self::EXECUTOR_TYPE_PHPREDIS, 'SRANDMEMBER', $args);
+        return self::arrayResult('SRANDMEMBER', $args);
     }
 
     public static function sRem(string $key): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'SREM', [$key]);
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'SREM', [$key]);
+        return self::intResult('SREM', [$key]);
     }
 
     public static function sRemove(string $key): int
@@ -924,20 +642,12 @@ final class RedisCmd
 
     public static function sUnion(string $key, string... $otherKeys): array
     {
-        if (self::gobackendEnabled()) {
-            return self::arrayResult(self::EXECUTOR_TYPE_GOBACKEND, 'SUNION@array', array_merge([$key], $otherKeys));
-        }
-
-        return self::arrayResult(self::EXECUTOR_TYPE_PHPREDIS, 'SUNION', array_merge([$key], $otherKeys));
+        return self::arrayResult('SUNION', array_merge([$key], $otherKeys));
     }
 
     public static function sUnionStore(string $dstKey, string... $srcKeys): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'SUNIONSTORE', array_merge([$dstKey], $srcKeys));
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'SUNIONSTORE', array_merge([$dstKey], $srcKeys));
+        return self::intResult('SUNIONSTORE', array_merge([$dstKey], $srcKeys));
     }
     /* end of Sets */
 
@@ -956,11 +666,7 @@ final class RedisCmd
             $timeout = StringUtils::toDuration($timeout);
         }
 
-        if (self::gobackendEnabled()) {
-            return self::arrayResult(self::EXECUTOR_TYPE_GOBACKEND, $cmd, array_merge($keys, ["$timeout"]));
-        }
-
-        return self::arrayResult(self::EXECUTOR_TYPE_PHPREDIS, $cmd, array_merge($keys, ["$timeout"]));
+        return self::arrayResult($cmd, array_merge($keys, ["$timeout"]));
     }
 
     /**
@@ -1010,20 +716,12 @@ final class RedisCmd
             }
         }
 
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'ZADD', $args, -1) >= 0;
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'ZADD', $args, -1) >= 0;
+        return self::intResult('ZADD', $args, -1) >= 0;
     }
 
     public static function zCard(string $key): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'ZCARD', [$key]);
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'ZCARD', [$key]);
+        return self::intResult('ZCARD', [$key]);
     }
 
     public static function zSize(string $key): int
@@ -1039,20 +737,12 @@ final class RedisCmd
      */
     public static function zCount(string $key, $start, $end): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'ZCOUNT', [$key, "$start", "$end"]);
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'ZCOUNT', [$key, "$start", "$end"]);
+        return self::intResult('ZCOUNT', [$key, "$start", "$end"]);
     }
 
     public static function zIncrBy(string $key, string $searchValue, int $num): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'ZINCRBY', [$key, "$num", $searchValue]);
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'ZINCRBY', [$key, "$num", $searchValue]);
+        return self::intResult('ZINCRBY', [$key, "$num", $searchValue]);
     }
 
     public static function zPop(string $key, ?int $count = null, bool $max = false): array
@@ -1064,11 +754,7 @@ final class RedisCmd
             $args[] = "$count";
         }
 
-        if (self::gobackendEnabled()) {
-            return self::arrayResult(self::EXECUTOR_TYPE_GOBACKEND, $cmd, $args);
-        }
-
-        return self::arrayResult(self::EXECUTOR_TYPE_PHPREDIS, $cmd, $args);
+        return self::arrayResult($cmd, $args);
     }
 
     /**
@@ -1102,11 +788,7 @@ final class RedisCmd
             $args[] = 'WITHSCORES';
         }
 
-        if (self::gobackendEnabled()) {
-            $entries = self::arrayResult(self::EXECUTOR_TYPE_GOBACKEND, 'ZRANGE@array', $args);
-        } else {
-            $entries = self::arrayResult(self::EXECUTOR_TYPE_PHPREDIS, 'ZRANGE', $args);
-        }
+        $entries = self::arrayResult('ZRANGE', $args);
 
         if (!$withscores) {
             return $entries;
@@ -1155,11 +837,7 @@ final class RedisCmd
 
     public static function zRank(string $key, string $searchValue): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'ZRANK', [$key, $searchValue]);
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'ZRANK', [$key, $searchValue]);
+        return self::intResult('ZRANK', [$key, $searchValue]);
     }
 
     public static function zRevRank(string $key, string $searchValue): int
@@ -1169,11 +847,7 @@ final class RedisCmd
 
     public static function zRem(string $key, string... $members): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'ZREM', array_merge([$key], $members));
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'ZREM', array_merge([$key], $members));
+        return self::intResult('ZREM', array_merge([$key], $members));
     }
 
     public static function zDelete(string $key, string... $members): int
@@ -1188,11 +862,7 @@ final class RedisCmd
 
     public static function zRemRangeByRank(string $key, int $start, int $end): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'ZREMRANGEBYRANK', [$key, "$start", "$end"]);
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'ZREMRANGEBYRANK', [$key, "$start", "$end"]);
+        return self::intResult('ZREMRANGEBYRANK', [$key, "$start", "$end"]);
     }
 
     public static function zDeleteRangeByRank(string $key, int $start, int $end): int
@@ -1208,11 +878,7 @@ final class RedisCmd
      */
     public static function zRemRangeByScore(string $key, $start, $end): int
     {
-        if (self::gobackendEnabled()) {
-            return self::intResult(self::EXECUTOR_TYPE_GOBACKEND, 'ZREMRANGEBYSCORE', [$key, "$start", "$end"]);
-        }
-
-        return self::intResult(self::EXECUTOR_TYPE_PHPREDIS, 'ZREMRANGEBYSCORE', [$key, "$start", "$end"]);
+        return self::intResult('ZREMRANGEBYSCORE', [$key, "$start", "$end"]);
     }
 
     /**
@@ -1252,243 +918,66 @@ final class RedisCmd
 
     public static function zScore(string $key, string $searchValue): float
     {
-        if (self::gobackendEnabled()) {
-            return self::floatResult(self::EXECUTOR_TYPE_GOBACKEND, 'ZSCORE', [$key, $searchValue]);
-        }
-
-        return self::floatResult(self::EXECUTOR_TYPE_PHPREDIS, 'ZSCORE', [$key, $searchValue]);
+        return self::floatResult('ZSCORE', [$key, $searchValue]);
     }
     /* end of Sorted Sets */
 
-    private static function stringResult(int $executorType, string $cmd, ?array $args = null): string
+    private static function stringResult(string $cmd, ?array $args = null): string
     {
-        switch ($executorType) {
-            case self::EXECUTOR_TYPE_GOBACKEND:
-                try {
-                    return self::handleNilString(self::fromGobackend($cmd, $args));
-                } catch (Throwable $ex) {
-                    throw new RuntimeException($ex->getMessage());
-                }
-            default:
-                try {
-                    $result = self::fromPhpRedis($cmd, $args);
-                    return is_string($result) ? $result : '';
-                } catch (Throwable $ex) {
-                    throw new RuntimeException($ex->getMessage());
-                }
-        }
-    }
-
-    private static function boolResult(int $executorType, string $cmd, ?array $args = null): bool
-    {
-        switch ($executorType) {
-            case self::EXECUTOR_TYPE_GOBACKEND:
-                try {
-                    $s1 = self::fromGobackend($cmd, $args);
-
-                    if ($s1 === 'OK') {
-                        return true;
-                    }
-
-                    return Cast::toBoolean($s1);
-                } catch (Throwable $ex) {
-                    throw new RuntimeException($ex->getMessage());
-                }
-            default:
-                try {
-                    $result = self::fromPhpRedis($cmd, $args);
-
-                    if (is_string($result) && strtoupper($result) === 'OK') {
-                        return true;
-                    }
-
-                    return Cast::toBoolean($result);
-                } catch (Throwable $ex) {
-                    throw new RuntimeException($ex->getMessage());
-                }
-        }
-    }
-
-    public static function intResult(int $executorType, string $cmd, ?array $args = null, int $default = 0): int
-    {
-        switch ($executorType) {
-            case self::EXECUTOR_TYPE_GOBACKEND:
-                try {
-                    $s1 = self::fromGobackend($cmd, $args);
-                    $s1 = preg_replace('/^[0-9]-/+', '', $s1);
-                    return Cast::toInt($s1, $default);
-                } catch (Throwable $ex) {
-                    throw new RuntimeException($ex->getMessage());
-                }
-            default:
-                try {
-                    $result = self::fromPhpRedis($cmd, $args);
-                    return Cast::toInt($result, $default);
-                } catch (Throwable $ex) {
-                    throw new RuntimeException($ex->getMessage());
-                }
-        }
-    }
-
-    public static function floatResult(int $executorType, string $cmd, ?array $args = null, float $default = 0.0): float
-    {
-        switch ($executorType) {
-            case self::EXECUTOR_TYPE_GOBACKEND:
-                try {
-                    $s1 = self::fromGobackend($cmd, $args);
-                    $s1 = preg_replace('/^[0-9]-/+', '', $s1);
-                    return Cast::toFloat($s1, $default);
-                } catch (Throwable $ex) {
-                    throw new RuntimeException($ex->getMessage());
-                }
-            default:
-                try {
-                    $result = self::fromPhpRedis($cmd, $args);
-                    return Cast::toFloat($result, $default);
-                } catch (Throwable $ex) {
-                    throw new RuntimeException($ex->getMessage());
-                }
-        }
-    }
-
-    public static function arrayResult(int $executorType, string $cmd, ?array $args = null): array
-    {
-        switch ($executorType) {
-            case self::EXECUTOR_TYPE_GOBACKEND:
-                try {
-                    $s1 = self::fromGobackend($cmd, $args);
-                    $values = explode('@^sep^@', $s1);
-
-                    foreach ($values as $i => $val) {
-                        $values[$i] = self::handleNilString($val);
-                    }
-
-                    return $values;
-                } catch (Throwable $ex) {
-                    throw new RuntimeException($ex->getMessage());
-                }
-            default:
-                try {
-                    $result = self::fromPhpRedis($cmd, $args);
-                    return is_array($result) ? $result : [];
-                } catch (Throwable $ex) {
-                    throw new RuntimeException($ex->getMessage());
-                }
-        }
-    }
-
-    private static function fromGobackend(string $cmd, ?array $args = null): string
-    {
-        if (strpos($cmd, '@') !== false) {
-            $parts = explode('@', $cmd);
-            $cmd = strtoupper($parts[0]) . '@' . $parts[1];
-        } else {
-            $cmd = strtoupper($cmd);
-        }
-
-        $settings = GobackendSettings::loadCurrent();
-
-        if (!is_object($settings) || !$settings->isEnabled()) {
-            throw new RuntimeException('RedisCmd: fail to load gobackend settings');
-        }
-
-        $host = $settings->getHost();
-
-        if ($host === '') {
-            $host = '127.0.0.1';
-        }
-
-        $port = $settings->getPort();
-
-        if ($port < 1) {
-            throw new RuntimeException('RedisCmd: gobackend settings: port not specified');
-        }
-
-        $msg = "@@redis:@@cmd:$cmd";
-        $sb = [];
-
-        if (is_array($args)) {
-            foreach ($args as $arg) {
-                if (!is_string($arg) || $arg === '') {
-                    continue;
-                }
-
-                $sb[] = $arg;
-            }
-        }
-
-        if (!empty($sb)) {
-            $msg .= '@^@' . implode('@^@', $sb);
-        }
-        
-        if (Swoole::inCoroutineMode(true)) {
-            return self::fromGobackendAsync([$host, $port, $msg]);
-        }
-
-        $fp = fsockopen($host, $port);
-
-        if (!is_resource($fp)) {
-            throw new RuntimeException('RedisCmd: fail to connect to gobackend');
-        }
-
         try {
-            fwrite($fp, $msg);
-            stream_set_timeout($fp, 5);
-            $result = '';
-            
-            while (!feof($fp)) {
-                $buf = fread($fp, 2 * 1024 * 1024);
-                $info = stream_get_meta_data($fp);
-
-                if ($info['timed_out']) {
-                    throw new RuntimeException('RedisCmd: read timeout from gobackend');
-                }
-                
-                if (is_string($buf) && $buf !== '') {
-                    $result .= $buf;
-                }
-            }
-
-            if (!is_string($result) || $result === '') {
-                throw new RuntimeException('RedisCmd: no contents read from gobackend');
-            }
-
-            return str_replace('@^@end', '', $result);
+            $result = self::getResult($cmd, $args);
+            return is_string($result) ? $result : '';
         } catch (Throwable $ex) {
             throw new RuntimeException($ex->getMessage());
-        } finally {
-            fclose($fp);
         }
     }
-    
-    private static function fromGobackendAsync(array $payloads): string
+
+    private static function boolResult(string $cmd, ?array $args = null): bool
     {
-        list($host, $port, $msg) = $payloads;
-        /** @noinspection PhpFullyQualifiedNameUsageInspection */
-        $socket = new \Swoole\Coroutine\Socket(AF_INET, SOCK_STREAM, 0);
+        try {
+            $result = self::getResult($cmd, $args);
 
-        if ($socket->connect($host, $port, 0.5) !== true) {
-            throw new RuntimeException('RedisCmd: fail to connect to gobackend');
+            if (is_string($result) && strtoupper($result) === 'OK') {
+                return true;
+            }
+
+            return Cast::toBoolean($result);
+        } catch (Throwable $ex) {
+            throw new RuntimeException($ex->getMessage());
         }
-
-        $n1 = $socket->sendAll($msg);
-
-        if (!is_int($n1) || $n1 < strlen($msg)) {
-            $socket->close();
-            throw new RuntimeException('RedisCmd: fail to send data to gobackend');
-        }
-
-        $result = $socket->recvAll(2 * 1024 * 1024, 2.0);
-        $socket->close();
-
-        if (!is_string($result)) {
-            throw new RuntimeException('RedisCmd: fail to read data from gobackend');
-        }
-
-        return str_replace('@^@end', '', $result);
     }
 
-    private static function fromPhpRedis(string $cmd, ?array $args = null)
+    public static function intResult(string $cmd, ?array $args = null, int $default = 0): int
+    {
+        try {
+            $result = self::getResult($cmd, $args);
+            return Cast::toInt($result, $default);
+        } catch (Throwable $ex) {
+            throw new RuntimeException($ex->getMessage());
+        }
+    }
+
+    public static function floatResult(string $cmd, ?array $args = null, float $default = 0.0): float
+    {
+        try {
+            $result = self::getResult($cmd, $args);
+            return Cast::toFloat($result, $default);
+        } catch (Throwable $ex) {
+            throw new RuntimeException($ex->getMessage());
+        }
+    }
+
+    public static function arrayResult(string $cmd, ?array $args = null): array
+    {
+        try {
+            $result = self::getResult($cmd, $args);
+            return is_array($result) ? $result : [];
+        } catch (Throwable $ex) {
+            throw new RuntimeException($ex->getMessage());
+        }
+    }
+
+    private static function getResult(string $cmd, ?array $args = null)
     {
         $ex1 = new RuntimeException('RedisCmd: fail to get redis connection');
         $redis = PoolManager::getConnection('redis');
@@ -1516,11 +1005,5 @@ final class RedisCmd
         } finally {
             PoolManager::releaseConnection($redis);
         }
-    }
-
-    private static function handleNilString(string $str): string
-    {
-        $nullValues = ['(nil)', 'nil', 'null', 'NULL'];
-        return in_array($str, $nullValues) ? '' : $str;
     }
 }

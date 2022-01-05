@@ -14,7 +14,6 @@ use phpboot\common\util\JsonUtils;
 use phpboot\common\util\StringUtils;
 use phpboot\dal\ConnectionBuilder;
 use phpboot\dal\ConnectionInterface;
-use phpboot\dal\GobackendSettings;
 use phpboot\dal\pool\PoolInterface;
 use phpboot\dal\pool\PoolManager;
 use PDO;
@@ -82,31 +81,6 @@ final class DB
         }
 
         return self::$map1[$key] === true;
-    }
-
-    public static function gobackendEnabled(?bool $flag = null, ?int $workerId = null): bool
-    {
-        if (Swoole::inCoroutineMode(true)) {
-            if (!is_int($workerId)) {
-                $workerId = Swoole::getWorkerId();
-            }
-
-            $key = "gobackendEnabled_worker$workerId";
-        } else {
-            $key = 'gobackendEnabled_noworker';
-        }
-
-        if (is_bool($flag)) {
-            self::$map1[$key] = $flag;
-            return false;
-        }
-
-        if (self::$map1[$key] !== true) {
-            return false;
-        }
-
-        $settings = GobackendSettings::loadCurrent($workerId);
-        return $settings instanceof GobackendSettings && !$settings->isEnabled();
     }
 
     public static function withTableSchemasCacheFilepath(string $fpath, ?int $workerId = null): void
@@ -246,23 +220,6 @@ final class DB
         $logger = self::getLogger();
         $canWriteLog = self::debugLogEnabled() && $logger instanceof LoggerInterface;
 
-        if (self::gobackendEnabled()) {
-            if ($canWriteLog) {
-                $logger->info('DB Context run in gobackend mode');
-            }
-
-            self::logSql($sql, $params);
-            list($result, $errorTips) = self::fromGobackend('@@select', $sql, $params);
-
-            if (!empty($errorTips)) {
-                $ex = new DbException(null, $errorTips);
-                self::writeErrorLog($ex);
-                throw $ex;
-            }
-
-            return collect(JsonUtils::arrayFrom($result));
-        }
-
         try {
             /* @var PDO $pdo */
             list($fromTxManager, $pdo) = self::getPdoConnection($txm);
@@ -307,24 +264,6 @@ final class DB
     {
         $logger = self::getLogger();
         $canWriteLog = self::debugLogEnabled() && $logger instanceof LoggerInterface;
-
-        if (self::gobackendEnabled()) {
-            if ($canWriteLog) {
-                $logger->info('DB Context run in gobackend mode');
-            }
-
-            self::logSql($sql, $params);
-            list($result, $errorTips) = self::fromGobackend('@@first', $sql, $params);
-
-            if (!empty($errorTips)) {
-                $ex = new DbException(null, $errorTips);
-                self::writeErrorLog($ex);
-                throw $ex;
-            }
-
-            $map1 = JsonUtils::mapFrom($result);
-            return is_array($map1) ? $map1 : null;
-        }
 
         try {
             /* @var PDO $pdo */
@@ -372,23 +311,6 @@ final class DB
         $logger = self::getLogger();
         $canWriteLog = self::debugLogEnabled() && $logger instanceof LoggerInterface;
 
-        if (self::gobackendEnabled()) {
-            if ($canWriteLog) {
-                $logger->info('DB Context run in gobackend mode');
-            }
-
-            self::logSql($sql, $params);
-            list($result, $errorTips) = self::fromGobackend('@@count', $sql, $params);
-
-            if (!empty($errorTips)) {
-                $ex = new DbException(null, $errorTips);
-                self::writeErrorLog($ex);
-                throw $ex;
-            }
-
-            return Cast::toInt($result, 0);
-        }
-
         try {
             /* @var PDO $pdo */
             list($fromTxManager, $pdo) = self::getPdoConnection($txm);
@@ -433,23 +355,6 @@ final class DB
     {
         $logger = self::getLogger();
         $canWriteLog = self::debugLogEnabled() && $logger instanceof LoggerInterface;
-
-        if (self::gobackendEnabled()) {
-            if ($canWriteLog) {
-                $logger->info('DB Context run in gobackend mode');
-            }
-
-            self::logSql($sql, $params);
-            list($result, $errorTips) = self::fromGobackend('@@insert', $sql, $params);
-
-            if (!empty($errorTips)) {
-                $ex = new DbException(null, $errorTips);
-                self::writeErrorLog($ex);
-                throw $ex;
-            }
-
-            return Cast::toInt($result, 0);
-        }
 
         try {
             /* @var PDO $pdo */
@@ -499,23 +404,6 @@ final class DB
     {
         $logger = self::getLogger();
         $canWriteLog = self::debugLogEnabled() && $logger instanceof LoggerInterface;
-
-        if (self::gobackendEnabled()) {
-            if ($canWriteLog) {
-                $logger->info('DB Context run in gobackend mode');
-            }
-
-            self::logSql($sql, $params);
-            list($result, $errorTips) = self::fromGobackend('@@update', $sql, $params);
-
-            if (!empty($errorTips)) {
-                $ex = new DbException(null, $errorTips);
-                self::writeErrorLog($ex);
-                throw $ex;
-            }
-
-            return Cast::toInt($result, -1);
-        }
 
         try {
             /* @var PDO $pdo */
@@ -571,30 +459,6 @@ final class DB
     {
         $logger = self::getLogger();
         $canWriteLog = self::debugLogEnabled() && $logger instanceof LoggerInterface;
-
-        if (self::gobackendEnabled()) {
-            if ($canWriteLog) {
-                $logger->info('DB Context run in gobackend mode');
-            }
-
-            self::logSql($sql, $params);
-            list($result, $errorTips) = self::fromGobackend('@@sum', $sql, $params);
-
-            if (!empty($errorTips)) {
-                $ex = new DbException(null, $errorTips);
-                self::writeErrorLog($ex);
-                throw $ex;
-            }
-
-            $map1 = JsonUtils::mapFrom($result);
-
-            if (!is_array($map1)) {
-                return '0.00';
-            }
-
-            $num = $map1['sum'];
-            return is_int($num) || is_float($num) ? $num : bcadd($num, 0, 2);
-        }
 
         try {
             /* @var PDO $pdo */
@@ -668,23 +532,6 @@ final class DB
         $logger = self::getLogger();
         $canWriteLog = self::debugLogEnabled() && $logger instanceof LoggerInterface;
 
-        if (self::gobackendEnabled()) {
-            if ($canWriteLog) {
-                $logger->info('DB Context run in gobackend mode');
-            }
-
-            self::logSql($sql, $params);
-            list(, $errorTips) = self::fromGobackend('@@execute', $sql, $params);
-
-            if (!empty($errorTips)) {
-                $ex = new DbException(null, $errorTips);
-                self::writeErrorLog($ex);
-                throw $ex;
-            }
-
-            return;
-        }
-
         try {
             /* @var PDO $pdo */
             list($fromTxManager, $pdo) = self::getPdoConnection($txm);
@@ -722,135 +569,6 @@ final class DB
                 PoolManager::releaseConnection($pdo, $err);
             }
         }
-    }
-
-    private static function fromGobackend(string $cmd, string $query, array $params): array
-    {
-        $cfg = GobackendSettings::loadCurrent();
-
-        if (!$cfg->isEnabled()) {
-            return ['', 'fail to load gobackend settings'];
-        }
-
-        $host = $cfg->getHost();
-        $port = $cfg->getPort();
-
-        switch ($cmd) {
-            case '@@select':
-                $timeout = 10;
-                break;
-            case '@@first':
-            case '@@count':
-            case '@@sum':
-                $timeout = 5;
-                break;
-            default:
-                $timeout = 2;
-        }
-
-        switch ($cmd) {
-            case '@@select':
-                $maxPkgLength = 8 * 1024 * 1024;
-                break;
-            case '@@first':
-                $maxPkgLength = 16 * 1024;
-                break;
-            default:
-                $maxPkgLength = 256;
-                break;
-        }
-
-        $msg = "@@db:$cmd:$query";
-
-        if (!empty($params)) {
-            $msg .= '@^sep^@' . JsonUtils::toJson($params);
-        }
-
-        if (Swoole::inCoroutineMode(true)) {
-            return self::fromGobackendAsync([$host, $port, $timeout, $maxPkgLength, $msg]);
-        }
-
-        $fp = fsockopen($host, $port);
-
-        if (!is_resource($fp)) {
-            $errorTips = 'fail to connect to gobackend';
-            return ['', $errorTips];
-        }
-
-        try {
-            fwrite($fp, $msg);
-            stream_set_timeout($fp, $timeout);
-            $result = '';
-
-            while (!feof($fp)) {
-                $buf = fread($fp, $maxPkgLength);
-                $info = stream_get_meta_data($fp);
-
-                if ($info['timed_out']) {
-                    return ['', 'read timeout'];
-                }
-
-                if (!is_string($buf)) {
-                    continue;
-                }
-
-                $result .= $buf;
-            }
-
-            if (!is_string($result) || $result === '') {
-                return ['', 'no contents readed'];
-            }
-
-            $result = trim(str_replace('@^@end', '', $result));
-
-            if (StringUtils::startsWith($result, '@@error:')) {
-                return ['', str_replace('@@error:', '', $result)];
-            }
-
-            return [$result, ''];
-        } catch (Throwable $ex) {
-            return ['', $ex->getMessage()];
-        } finally {
-            fclose($fp);
-        }
-    }
-
-    private static function fromGobackendAsync(array $payloads): array
-    {
-        $ret = ['', ''];
-        list ($host, $port, $timeout, $maxPkgLength, $msg) = $payloads;
-        /** @noinspection PhpFullyQualifiedNameUsageInspection */
-        $socket = new \Swoole\Coroutine\Socket(AF_INET, SOCK_STREAM, 0);
-
-        if ($socket->connect($host, $port, 0.5) !== true) {
-            $ret[1] = 'fail to connect to gobackend';
-            return $ret;
-        }
-
-        $n1 = $socket->sendAll($msg);
-
-        if (!is_int($n1) || $n1 < strlen($msg)) {
-            $socket->close();
-            $ret[1] = 'fail to send data to gobackend';
-            return $ret;
-        }
-
-        $result = $socket->recvAll($maxPkgLength, floatval($timeout));
-        $socket->close();
-
-        if (is_string($result)) {
-            $result = trim(str_replace('@^@end', '', $result));
-
-            if (StringUtils::startsWith($result, '@@error:')) {
-                $ret[1] = str_replace('@@error:', '', $result);
-            } else {
-                $ret[0] = $result;
-            }
-        } else {
-            $ret[1] = 'fail to read data from gobackend';
-        }
-
-        return $ret;
     }
 
     /**

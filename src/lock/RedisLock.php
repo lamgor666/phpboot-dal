@@ -11,7 +11,7 @@ use phpboot\dal\ConnectionBuilder;
 use Redis;
 use Throwable;
 
-final class DistributeLock
+final class RedisLock
 {
     /**
      * @var string
@@ -211,7 +211,7 @@ final class DistributeLock
 
         go(function () use ($payloads, $wg, &$success) {
             $execStart = time();
-            $tableName = SwooleTable::distributeLockTableName();
+            $tableName = SwooleTable::redisLockTableName();
 
             /* @var string $key */
             /* @var string $contents */
@@ -259,7 +259,7 @@ final class DistributeLock
         $wg->add();
 
         go(function () use ($payloads, $wg) {
-            $tableName = SwooleTable::distributeLockTableName();
+            $tableName = SwooleTable::redisLockTableName();
 
             /* @var string $key */
             /* @var string $contents */
